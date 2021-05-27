@@ -3,8 +3,8 @@ class Element():
     def __init__(self, E, A):
         self.nodes = []
         self.conectivity = []
-        self.E = E
-        self.A = A
+        self.E = E  #MODULO DE ELASTICIDADE
+        self.A = A  #AREA DE SECCAO
         self.tension = 0
         self.deformation = 0
         self.l = 0
@@ -17,9 +17,9 @@ class Element():
         self.l = np.sqrt((self.nodes[0].x-self.nodes[1].x)**2 + (self.nodes[0].y-self.nodes[1].y)**2)
 
     def calculateS(self):
-        self.m = np.array(self.m)
-        self.S = (self.E*self.A/self.l)*(np.dot(self.m[:,None], self.m.transpose()[None,:]))/(np.linalg.norm(self.m)**2)
-        self.K = np.kron(np.dot(np.array(self.conectivity)[:,None], np.array(self.conectivity).transpose()[None,:]), self.S)
+        self.m = np.array(self.m) 
+        self.S = (self.E*self.A/self.l)*(np.dot(self.m[:,None], self.m.transpose()[None,:]))/(np.linalg.norm(self.m)**2)  
+        self.K = np.kron(np.dot(np.array(self.conectivity)[:,None], np.array(self.conectivity).transpose()[None,:]), self.S) #MATRIZ DE RIGIDEZ DO ELEMENTO
 
     def calculateDefTens(self):
         localU = np.array([[x.u, y.v] for x,y in zip(self.nodes, self.nodes)])
@@ -69,6 +69,21 @@ if __name__ == "__main__":
     from numerical_solver import *
     
     nn,N,nm,Inc,nc,F,nr,R = LeExcel('entradaAPS.xlsx')
+
+    
+    #######################################################################
+    # nn = número de nós                                                  #
+    # N = Lista dos nós [(x1,y1),(x2,y2),etc] shape = (2,nn)              #
+    # nm = número de membros                                              #
+    # Inc = Matriz de incidência (qual nó conecta em qual) shape = (2,nm) #
+    # nc = número de cargas                                               #
+    # F = Matriz de Forças ([nó1, x/y, carga], etc) shape = (3,nc)        #
+    # nr = número de restrições                                           #
+    # R = Matriz de restrições ([nó1, x/y], etc) shape = (2, nr)          #
+    #######################################################################
+
+
+
     nodes = [Node(x, y) for x,y in zip(N[0],N[1])]
     elements = []
     conectivity_g = []
@@ -90,15 +105,18 @@ if __name__ == "__main__":
         elements[i].calculateS()
         K_g.append(elements[i].K)
     K_g = sum(K_g)
-    #print(K_g)
 
-    #print(R)
 
     K_g_restricted = np.delete(K_g, R, axis=0)
     K_g_restricted = np.delete(K_g_restricted, R, axis=1)
     F_restricted = np.delete(F, R, axis=0)
     
-    # print(K_g_restricted)
+    #M = Matriz dos Membros (matriz de nós x matriz de conectividade)
+    #Me = Matriz dos Membros de um elemento específico
+    #C =  Matriz de Conectividade
+    #K = Matriz de Rigidez do elemento
+    #Kg = Soma de todos os Ks
+    #u = Vetor de deslocamento nodal
 
     ite = 1000
     tol = 1e-12
@@ -110,14 +128,11 @@ if __name__ == "__main__":
 
     print("Gauss-Seidel:")
     start = time.perf_counter()
-    u = gauss_seidel_method(ite, tol, K_g_restricted, F_restricted).tolist()
+    u = gauss_seidel_method(ite, tol, K_g_restricted, F_restricted).tolist() #MODELO USADO NO CALCULO FINAL
     print(f"Levei {time.perf_counter() - start}\n\n")
 
     x = np.linalg.solve(K_g_restricted, F_restricted)
-    # print(u)
-    # print(x)
 
-    # WTF
     for i in range(2*nn):
         if i in R.astype(int):
             u.insert(i, 0)
@@ -132,9 +147,7 @@ if __name__ == "__main__":
     for i in range(len(f_f)):
         if abs(f_f[i]) < 1e-9:
             f_f[i] = 0
-    # print(f_f)
 
-    # print(elements[0].conectivity, np.array(u).transpose())
     for seg in elements:
         seg.calculateDefTens()
     
@@ -161,24 +174,48 @@ if __name__ == "__main__":
     finalString=""
 
     finalString += nodalString
-    for i in u:
-        finalString += f"\n{i:.3e}"
+    i = 0
+    while i < len(u):
+        x = f"{u[i]:.3e}"
+        y = f"{u[i+1]:.3e}"
+        finalString += "\n(" + x + " , " + y + ")"
+        i+=2
     finalString += "\n\n"
 
     finalString += forceString
-    for i in f_f:
-        finalString += f"\n{i:.3e}"
+    i = 0
+    while i < len(f_f):
+        x =  f"{f_f[i]:.3e}"
+        y =  f"{f_f[i+1]:.3e}"
+        finalString += "\n(" + x + " , " + y + ")"
+        i += 2
     finalString += "\n\n"
 
     finalString += tensionString
-    for i in elements:
-        finalString += f"\n{i.tension:.3e}"
+    i = 0
+    while i < len(elements):
+        x =  f"{elements[i].tension:.3e}"
+        y =  f"{elements[i+1].tension:.3e}"
+        finalString += "\n(" + x + " , " + y + ")"
+        i += 2
     finalString += "\n\n"
 
     finalString += deformationString
-    for i in elements:
-        finalString += f"\n{i.deformation:.3e}"
+    i = 0
+    while i < len(elements):
+        x =  f"{elements[i].deformation:.3e}"
+        y =  f"{elements[i+1].deformation:.3e}"
+        finalString += "\n(" + x + " , " + y + ")"
+        i += 2
     finalString += "\n\n"
 
     with open("out.txt", "wb") as out:
         out.write(finalString.encode("utf8"))
+
+
+    ###############################################################################################
+    #Interpretação Out.txt
+    #Vetor de deslocamento nodal [m]:Quanto cada nó se deslocou (x,y) em relação ao início
+    #Forças [N]: Força de reação em cada nó (x,y)
+    #Tensão em cada elemento [Pa]: (x,y)
+    #Deformação longitudinal específica em cada elemento: "porcentagem" de mudança de tamanho (x,y)
