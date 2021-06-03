@@ -1,3 +1,6 @@
+from typing import final
+
+
 class Element():
 
     def __init__(self, E, A):
@@ -68,7 +71,8 @@ if __name__ == "__main__":
     import time
     from numerical_solver import *
     
-    nn,N,nm,Inc,nc,F,nr,R = LeExcel('entradaAPS.xlsx')
+    nn,N,nm,Inc,nc,F,nr,R = LeExcel('entradaAPS3.xlsx')
+    F*=19
 
     
     #######################################################################
@@ -83,7 +87,7 @@ if __name__ == "__main__":
     #######################################################################
 
 
-
+    density = 848
     nodes = [Node(x, y) for x,y in zip(N[0],N[1])]
     elements = []
     conectivity_g = []
@@ -107,9 +111,9 @@ if __name__ == "__main__":
     K_g = sum(K_g)
 
 
-    K_g_restricted = np.delete(K_g, R, axis=0)
-    K_g_restricted = np.delete(K_g_restricted, R, axis=1)
-    F_restricted = np.delete(F, R, axis=0)
+    K_g_restricted = np.delete(K_g, R.astype(int), axis=0)
+    K_g_restricted = np.delete(K_g_restricted, R.astype(int), axis=1)
+    F_restricted = np.delete(F, R.astype(int), axis=0)
     
     #M = Matriz dos Membros (matriz de nós x matriz de conectividade)
     #Me = Matriz dos Membros de um elemento específico
@@ -121,17 +125,18 @@ if __name__ == "__main__":
     ite = 1000
     tol = 1e-12
 
-    print("Jacobi:")
-    start = time.perf_counter()
-    lixo = jacobi_method(ite, tol, K_g_restricted, F_restricted)
-    print(f"Levei {time.perf_counter() - start}")
+    # print("Jacobi:")
+    # start = time.perf_counter()
+    # lixo = jacobi_method(ite, tol, K_g_restricted, F_restricted)
+    # print(f"Levei {time.perf_counter() - start}")
 
-    print("Gauss-Seidel:")
-    start = time.perf_counter()
+    # print("Gauss-Seidel:")
+    # start = time.perf_counter()
     u = gauss_seidel_method(ite, tol, K_g_restricted, F_restricted).tolist() #MODELO USADO NO CALCULO FINAL
-    print(f"Levei {time.perf_counter() - start}\n\n")
+    # print(f"Levei {time.perf_counter() - start}\n\n")
 
-    x = np.linalg.solve(K_g_restricted, F_restricted)
+    # u = np.linalg.solve(K_g_restricted, F_restricted)
+
 
     for i in range(2*nn):
         if i in R.astype(int):
@@ -151,10 +156,7 @@ if __name__ == "__main__":
     for seg in elements:
         seg.calculateDefTens()
     
-    print(type(seg.tension))
-
-
-
+    # print(type(seg.tension))
 
 
 
@@ -173,12 +175,22 @@ if __name__ == "__main__":
 
     finalString=""
 
+    #print(len(elements))
+
+    displacementList = []
+    tensionList = []
+    deformationList = []
+    lengthList = [i.l for i in elements]
+    mass = sum([i.l*i.A*density for i in elements])
+
     finalString += nodalString
     i = 0
     while i < len(u):
         x = f"{u[i]:.3e}"
         y = f"{u[i+1]:.3e}"
         finalString += "\n(" + x + " , " + y + ")"
+        displacementList.append(u[i])
+        displacementList.append(u[i+1])
         i+=2
     finalString += "\n\n"
 
@@ -194,21 +206,52 @@ if __name__ == "__main__":
     finalString += tensionString
     i = 0
     while i < len(elements):
-        x =  f"{elements[i].tension:.3e}"
-        y =  f"{elements[i+1].tension:.3e}"
-        finalString += "\n(" + x + " , " + y + ")"
-        i += 2
+        # x =  f"{elements[i].tension:.3e}"
+        # y =  f"{elements[i+1].tension:.3e}"
+        finalString += f"\n{elements[i].tension:.3e}"
+        tensionList.append(elements[i].tension)
+        i += 1
     finalString += "\n\n"
 
     finalString += deformationString
     i = 0
     while i < len(elements):
-        x =  f"{elements[i].deformation:.3e}"
-        y =  f"{elements[i+1].deformation:.3e}"
-        finalString += "\n(" + x + " , " + y + ")"
-        i += 2
+        # x =  f"{elements[i].deformation:.3e}"
+        # y =  f"{elements[i+1].deformation:.3e}"
+        finalString += f"\n{elements[i].deformation:.3e}"
+        deformationList.append(elements[i].deformation)
+        i += 1
     finalString += "\n\n"
 
+    finalString += f"""=======================\nSummary:\n===========================\n\n"""
+    finalString += f"Max:\n\tTension: {max(tensionList):.3e}\n\tDeformation: {max(deformationList):.3e}\n\tDisplacement: {max(displacementList):.3e}\n"
+    finalString += f"Min:\n\tTension: {min(tensionList):.3e}\n\tDeformation: {min(deformationList):.3e}\n\tDisplacement: {min(displacementList):.3e}\n"
+    finalString += f"Força total: {abs(int(sum(F)))}[N]\n"
+    finalString += f"Maior comprimento: {abs(max(lengthList))}[m]\n"
+    finalString += f"Massa total: {mass*1000}[g]\n"
+    finalString += "\n"
+    failed = False
+    if (max(tensionList)>18e6 or min(tensionList)<-18e6):
+        failed = True
+        finalString+="Limite de ruptura excedido!\n"
+    elif (max(displacementList)>0.02 or min(displacementList)<-0.02):
+        failed = True
+        finalString+="Limite de deslocamento atingido!\n"
+    elif (max(deformationList)>5e-2):
+        failed = True
+        finalString+="Limite de deformação atingido!\n"
+    elif (mass>0.25):
+        failed = True
+        finalString+="Limite de massa atingido!\n"
+    elif abs(max(lengthList))>0.11:
+        failed = True
+        finalString+="Limite de comprimento atingido!\n"
+        
+    if failed:
+        finalString += "\nA estrutura falhou!\n"
+    else:
+        finalString += "\nA estrutura está de pé!\n"
+    
     with open("out.txt", "wb") as out:
         out.write(finalString.encode("utf8"))
 

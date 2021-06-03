@@ -24,7 +24,7 @@ def jacobi_method(ite, tol, K, F):
 
         xList = xListNext.copy()
         count += 1
-    print(f"Rodei {count} vezes")
+    # print(f"Rodei {count} vezes")
     return xList
 
 
@@ -45,12 +45,12 @@ def gauss_seidel_method(ite, tol, K, F):
         if(0 not in xList):
             tolCalc = max(abs(np.array([(x-y)/x for x, y in zip(xList, xListNext)])))
             if (tolCalc<tol):
-                print(f"Rodei {count} vezes")
+                #print(f"Rodei {count} vezes")
                 return xList
 
         xList = xListNext.copy()
         count += 1
-    print(f"Rodei {count} vezes")
+    # print(f"Rodei {count} vezes")
     return xList
 
 if __name__ == "__main__":
