@@ -1,4 +1,5 @@
 from typing import final
+from funcoesTermosol import plota
 
 
 class Element():
@@ -71,8 +72,8 @@ if __name__ == "__main__":
     import time
     from numerical_solver import *
     
-    nn,N,nm,Inc,nc,F,nr,R = LeExcel('entradaAPS3.xlsx')
-    F*=19
+    nn,N,nm,Inc,nc,F,nr,R = LeExcel('entradasimples.xlsx')
+    F*=1
 
     
     #######################################################################
@@ -255,6 +256,8 @@ if __name__ == "__main__":
     with open("out.txt", "wb") as out:
         out.write(finalString.encode("utf8"))
 
+
+    plota(N, Inc)
 
     ###############################################################################################
     #Interpretação Out.txt
